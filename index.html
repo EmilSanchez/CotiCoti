@@ -859,7 +859,7 @@
                 <label>Valor del dólar <span class="hint">(tasa de cambio a COP)</span></label>
                 <div class="input-wrap">
                   <span class="prefix">$</span>
-                  <input type="number" id="dollarRate" placeholder="0.00" min="0" step="0.01">
+                  <input type="text" inputmode="numeric" id="dollarRate" placeholder="0">
                 </div>
               </div>
             </div>
@@ -889,14 +889,14 @@
                   <label>Envío nacional <span class="hint">(COP)</span></label>
                   <div class="input-wrap copwrap">
                     <span class="prefix">COP $</span>
-                    <input type="number" id="nationalManual" placeholder="0" min="0" step="500">
+                    <input type="text" inputmode="numeric" id="nationalManual" placeholder="0">
                   </div>
                 </div>
                 <div class="field">
                   <label>Envío internacional <span class="hint">(COP)</span></label>
                   <div class="input-wrap copwrap">
                     <span class="prefix">COP $</span>
-                    <input type="number" id="internationalManual" placeholder="0" min="0" step="500">
+                    <input type="text" inputmode="numeric" id="internationalManual" placeholder="0">
                   </div>
                 </div>
               </div>
@@ -905,7 +905,7 @@
                   <label>Costo por servicio <span class="hint">(COP)</span></label>
                   <div class="input-wrap copwrap">
                     <span class="prefix">COP $</span>
-                    <input type="number" id="serviceManual" placeholder="0" min="0" step="500">
+                    <input type="text" inputmode="numeric" id="serviceManual" placeholder="0">
                   </div>
                 </div>
               </div>
@@ -938,7 +938,7 @@
                   <label>Envío internacional <span class="hint">(COP, valor manual)</span></label>
                   <div class="input-wrap copwrap">
                     <span class="prefix">COP $</span>
-                    <input type="number" id="internationalOverride" placeholder="0" min="0" step="500">
+                    <input type="text" inputmode="numeric" id="internationalOverride" placeholder="0">
                   </div>
                 </div>
               </div>
@@ -1092,7 +1092,7 @@
                 <label>Precio de venta <span class="hint">(COP)</span></label>
                 <div class="input-wrap copwrap">
                   <span class="prefix">COP $</span>
-                  <input type="number" id="mlSalePrice" placeholder="0" min="0" step="500">
+                  <input type="text" inputmode="numeric" id="mlSalePrice" placeholder="0">
                 </div>
               </div>
             </div>
@@ -1133,7 +1133,7 @@
                   <label>Valor del dólar <span class="hint">(COP por USD)</span></label>
                   <div class="input-wrap">
                     <span class="prefix">$</span>
-                    <input type="number" id="mlDollarRate" placeholder="0.00" min="0" step="0.01">
+                    <input type="text" inputmode="numeric" id="mlDollarRate" placeholder="0">
                   </div>
                 </div>
               </div>
@@ -1183,7 +1183,7 @@
                   <label>Guía nacional <span class="hint">(COP)</span></label>
                   <div class="input-wrap copwrap">
                     <span class="prefix">COP $</span>
-                    <input type="number" id="mlNationalCOP" placeholder="0" min="0" step="500">
+                    <input type="text" inputmode="numeric" id="mlNationalCOP" placeholder="0">
                   </div>
                 </div>
               </div>
@@ -1198,7 +1198,7 @@
                   <label>Envío que pagará el cliente <span class="hint">(COP)</span></label>
                   <div class="input-wrap copwrap">
                     <span class="prefix">COP $</span>
-                    <input type="number" id="mlClientShippingCOP" placeholder="0" min="0" step="500">
+                    <input type="text" inputmode="numeric" id="mlClientShippingCOP" placeholder="0">
                   </div>
                 </div>
               </div>
@@ -1312,7 +1312,7 @@
             <label>Valor actual del dólar <span class="hint">(COP por USD)</span></label>
             <div class="input-wrap">
               <span class="prefix">$</span>
-              <input type="number" id="cfgDollarRateInput" placeholder="4000" min="0" step="1">
+              <input type="text" inputmode="numeric" id="cfgDollarRateInput" placeholder="4.000">
             </div>
           </div>
         </div>
@@ -1573,6 +1573,37 @@
     return isNaN(v) ? 0 : v;
   };
 
+  /* ---- Campos en pesos (COP): se escriben con puntos de miles,
+     ej. 1.525.000, y se interpretan como ese número entero, ignorando
+     los puntos por completo (no se leen como decimales). ---- */
+  function formatThousands(raw){
+    const digits = String(raw == null ? '' : raw).replace(/[^\d]/g, '');
+    if (!digits) return '';
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+  function parseThousands(raw){
+    const digits = String(raw == null ? '' : raw).replace(/[^\d]/g, '');
+    return digits ? parseInt(digits, 10) : 0;
+  }
+  const numCOP = (el) => parseThousands(el.value);
+
+  function reformatThousandsField(el){
+    const distFromEnd = el.value.length - (el.selectionStart ?? el.value.length);
+    const formatted = formatThousands(el.value);
+    if (el.value !== formatted) el.value = formatted;
+    const pos = Math.max(0, formatted.length - distFromEnd);
+    try { el.setSelectionRange(pos, pos); } catch(e){}
+  }
+  function attachThousandsInput(el){
+    el.addEventListener('input', () => reformatThousandsField(el));
+  }
+  function setThousandsValue(el, n){
+    el.value = formatThousands(String(Math.round(n || 0)));
+  }
+
+  [dollarRate, nationalManual, internationalManual, serviceManual, internationalOverride].forEach(attachThousandsInput);
+  attachThousandsInput($('cfgDollarRateInput'));
+
   /* ============================================================
      VIEW SWITCHING
   ============================================================ */
@@ -1588,7 +1619,7 @@
     navItems.forEach(el => el.classList.toggle('active', el.dataset.view === name));
     if (name === 'history') renderHistory();
     if (name === 'ml'){
-      if (!$('mlDollarRate').value) $('mlDollarRate').value = config.dollarRate || '';
+      if (!numCOP($('mlDollarRate'))) setThousandsValue($('mlDollarRate'), config.dollarRate || 0);
       mlCalculate();
     }
     if (name === 'config'){
@@ -1596,7 +1627,7 @@
       renderServiceTierTable();
       $('taxThresholdInput').value = config.taxThresholdUSD;
       $('taxPercentInput').value = config.taxPercent;
-      $('cfgDollarRateInput').value = config.dollarRate;
+      setThousandsValue($('cfgDollarRateInput'), config.dollarRate || 0);
     }
   }
   navItems.forEach(el => el.addEventListener('click', () => switchView(el.dataset.view)));
@@ -1740,7 +1771,7 @@
   ============================================================ */
   function calculate(){
     const product = num(productValue);
-    const rate = num(dollarRate);
+    const rate = numCOP(dollarRate);
     const weight = num(productWeight);
     const productCOP = product * rate;
 
@@ -1756,16 +1787,16 @@
         internationalCOP = wTier.internationalCOP;
       }
       if (intlManualOverride){
-        internationalCOP = num(internationalOverride);
+        internationalCOP = numCOP(internationalOverride);
       }
       const sTier = renderServiceReadout(product);
       if (sTier){
         serviceCOP = productCOP * (sTier.servicePercent / 100);
       }
     } else {
-      nationalCOP = num(nationalManual);
-      internationalCOP = num(internationalManual);
-      serviceCOP = num(serviceManual);
+      nationalCOP = numCOP(nationalManual);
+      internationalCOP = numCOP(internationalManual);
+      serviceCOP = numCOP(serviceManual);
     }
 
     const productPartUSD = noProductMode ? 0 : product;
@@ -1945,11 +1976,12 @@
       '<tr data-id="' + t.id + '">' +
         '<td><input type="number" min="0" step="0.1" class="wt-min" value="' + t.min + '"></td>' +
         '<td><input type="number" min="0" step="0.1" class="wt-max" value="' + t.max + '"></td>' +
-        '<td><input type="number" min="0" step="500" class="wt-national" value="' + t.nationalCOP + '"></td>' +
-        '<td><input type="number" min="0" step="500" class="wt-international" value="' + t.internationalCOP + '"></td>' +
+        '<td><input type="text" inputmode="numeric" class="wt-national" value="' + formatThousands(t.nationalCOP) + '"></td>' +
+        '<td><input type="text" inputmode="numeric" class="wt-international" value="' + formatThousands(t.internationalCOP) + '"></td>' +
         '<td><button class="rm-row" data-action="rm-weight-tier" title="Eliminar tramo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
       '</tr>'
     )).join('');
+    body.querySelectorAll('.wt-national, .wt-international').forEach(attachThousandsInput);
   }
 
   $('addWeightTierBtn').addEventListener('click', () => {
@@ -2016,8 +2048,8 @@
       const id = row.dataset.id;
       const min = parseFloat(row.querySelector('.wt-min').value) || 0;
       const max = parseFloat(row.querySelector('.wt-max').value) || 0;
-      const nationalCOP = parseFloat(row.querySelector('.wt-national').value) || 0;
-      const internationalCOP = parseFloat(row.querySelector('.wt-international').value) || 0;
+      const nationalCOP = parseThousands(row.querySelector('.wt-national').value) || 0;
+      const internationalCOP = parseThousands(row.querySelector('.wt-international').value) || 0;
       weightTiers.push({ id, min, max, nationalCOP, internationalCOP });
     });
 
@@ -2035,7 +2067,7 @@
     // tax settings
     const taxThresholdUSD = parseFloat($('taxThresholdInput').value) || 0;
     const taxPercent = parseFloat($('taxPercentInput').value) || 0;
-    const dollarRate = parseFloat($('cfgDollarRateInput').value) || 0;
+    const dollarRate = parseThousands($('cfgDollarRateInput').value) || 0;
 
     function hasOverlap(tiers){
       const sorted = [...tiers].sort((a,b) => a.min - b.min);
@@ -2099,6 +2131,14 @@
     mlCalculate();
   });
 
+  // Campos siempre en COP: admiten puntos de miles (1.525.000)
+  [mlDollarRate, mlNationalCOP, mlClientShippingCOP, mlSalePrice].forEach(attachThousandsInput);
+  // mlProductValue y mlInternationalShipping cambian de formato según la
+  // moneda elegida (USD decimal / COP con puntos de miles); se activa el
+  // formateo de miles solo cuando están en modo COP.
+  mlProductValue.addEventListener('input', () => { if (mlProductCurrency === 'COP') reformatThousandsField(mlProductValue); });
+  mlInternationalShipping.addEventListener('input', () => { if (mlIntlCurrency === 'COP') reformatThousandsField(mlInternationalShipping); });
+
   /* ---- Moneda del producto ---- */
   function setMlProductCurrency(cur){
     mlProductCurrency = cur;
@@ -2116,6 +2156,11 @@
       prodWrap.classList.remove('copwrap');
       dollarRow.style.display = 'grid';
       dollarNote.style.display = 'block';
+      // vuelve a un campo decimal normal (USD tiene centavos, no miles)
+      mlProductValue.setAttribute('type', 'number');
+      mlProductValue.setAttribute('step', '0.01');
+      mlProductValue.removeAttribute('inputmode');
+      mlProductValue.value = '';
     } else {
       prodPrefix.textContent = 'COP $'; prodHint.textContent = '(COP)';
       prodWrap.classList.add('copwrap');
@@ -2123,7 +2168,12 @@
       // por dentro (tomado de Configuración) solo para calcular el impuesto en USD.
       dollarRow.style.display = 'none';
       dollarNote.style.display = 'none';
-      if (!num(mlDollarRate)) mlDollarRate.value = config.dollarRate || '';
+      if (!numCOP(mlDollarRate)) setThousandsValue(mlDollarRate, config.dollarRate || 0);
+      // campo de pesos: admite puntos de miles (1.525.000) sin afectar el valor
+      mlProductValue.setAttribute('type', 'text');
+      mlProductValue.setAttribute('inputmode', 'numeric');
+      mlProductValue.removeAttribute('step');
+      mlProductValue.value = '';
     }
     mlCalculate();
   }
@@ -2143,9 +2193,17 @@
     if (cur === 'USD'){
       intlPrefix.textContent = '$'; intlHint.textContent = '(USD)';
       intlWrap.classList.remove('copwrap');
+      mlInternationalShipping.setAttribute('type', 'number');
+      mlInternationalShipping.setAttribute('step', '0.01');
+      mlInternationalShipping.removeAttribute('inputmode');
+      mlInternationalShipping.value = '';
     } else {
       intlPrefix.textContent = 'COP $'; intlHint.textContent = '(COP)';
       intlWrap.classList.add('copwrap');
+      mlInternationalShipping.setAttribute('type', 'text');
+      mlInternationalShipping.setAttribute('inputmode', 'numeric');
+      mlInternationalShipping.removeAttribute('step');
+      mlInternationalShipping.value = '';
     }
     mlCalculate();
   }
@@ -2168,9 +2226,9 @@
   });
 
   function mlCalculate(){
-    const rate = num(mlDollarRate);
-    const productInput = num(mlProductValue);
-    const intlInput = num(mlInternationalShipping);
+    const rate = numCOP(mlDollarRate);
+    const productInput = mlProductCurrency === 'COP' ? numCOP(mlProductValue) : num(mlProductValue);
+    const intlInput = mlIntlCurrency === 'COP' ? numCOP(mlInternationalShipping) : num(mlInternationalShipping);
 
     let productUSD, productCOP;
     if (mlProductCurrency === 'USD'){
@@ -2189,10 +2247,10 @@
     const taxUSD = (mlTaxEnabled && productUSD > config.taxThresholdUSD) ? productUSD * (config.taxPercent / 100) : 0;
     const taxCOP = taxUSD * rate;
 
-    const nationalCOP = mlNationalApplies ? num(mlNationalCOP) : 0;
+    const nationalCOP = mlNationalApplies ? numCOP(mlNationalCOP) : 0;
     const totalCostCOP = productCOP + taxCOP + intlCOP + nationalCOP;
-    const salePrice = num(mlSalePrice);
-    const clientShippingCOP = mlClientPaysNational ? num(mlClientShippingCOP) : 0;
+    const salePrice = numCOP(mlSalePrice);
+    const clientShippingCOP = mlClientPaysNational ? numCOP(mlClientShippingCOP) : 0;
     const totalIncomeCOP = salePrice + clientShippingCOP;
     const profit = totalIncomeCOP - totalCostCOP;
     const marginPct = totalIncomeCOP > 0 ? (profit / totalIncomeCOP) * 100 : 0;
@@ -2265,7 +2323,7 @@
 
   $('mlResetBtn').addEventListener('click', () => {
     [mlProductValue, mlInternationalShipping, mlNationalCOP, mlSalePrice, mlClientShippingCOP].forEach(el => el.value = '');
-    mlDollarRate.value = config.dollarRate || '';
+    setThousandsValue(mlDollarRate, config.dollarRate || 0);
     mlNationalApplies = false;
     mlNationalSwitch.classList.remove('on');
     mlNationalFieldRow.style.display = 'none';
@@ -2283,7 +2341,7 @@
      INIT
   ============================================================ */
   updateHistoryCount();
-  mlDollarRate.value = config.dollarRate || '';
+  setThousandsValue(mlDollarRate, config.dollarRate || 0);
   calculate();
   mlCalculate();
 })();
