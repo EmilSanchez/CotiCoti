@@ -1139,6 +1139,11 @@
               </div>
               <div class="field-hint-note" id="mlDollarRateNote">Tomado de <b>Configuración</b>; editable aquí solo para este cálculo.</div>
               <div class="field-hint-note" id="mlTaxRuleNote" style="margin-top:6px;">Si el producto supera <b><span id="mlTaxRuleThreshold">$200 USD</span></b>, se suma un impuesto del <b><span id="mlTaxRulePercent">29%</span></b> sobre ese valor como costo adicional.</div>
+
+              <div class="inline-toggle" style="margin-top:12px;">
+                <span class="it-label">Calcular impuestos</span>
+                <div id="mlTaxSwitch" class="switch small on"><div class="knob"></div></div>
+              </div>
             </div>
 
             <!-- Envios -->
@@ -2080,10 +2085,19 @@
   const mlIntlCurrencyUSDBtn = $('mlIntlCurrencyUSDBtn');
   const mlIntlCurrencyCOPBtn = $('mlIntlCurrencyCOPBtn');
 
+  const mlTaxSwitch = $('mlTaxSwitch');
+
   let mlProductCurrency = 'USD';
   let mlIntlCurrency = 'COP';
   let mlNationalApplies = false;
   let mlClientPaysNational = false;
+  let mlTaxEnabled = true;
+
+  mlTaxSwitch.addEventListener('click', () => {
+    mlTaxEnabled = !mlTaxEnabled;
+    mlTaxSwitch.classList.toggle('on', mlTaxEnabled);
+    mlCalculate();
+  });
 
   /* ---- Moneda del producto ---- */
   function setMlProductCurrency(cur){
@@ -2172,7 +2186,7 @@
       intlCOP = intlInput; intlUSD = rate > 0 ? intlInput / rate : 0;
     }
 
-    const taxUSD = productUSD > config.taxThresholdUSD ? productUSD * (config.taxPercent / 100) : 0;
+    const taxUSD = (mlTaxEnabled && productUSD > config.taxThresholdUSD) ? productUSD * (config.taxPercent / 100) : 0;
     const taxCOP = taxUSD * rate;
 
     const nationalCOP = mlNationalApplies ? num(mlNationalCOP) : 0;
@@ -2184,12 +2198,17 @@
     const marginPct = totalIncomeCOP > 0 ? (profit / totalIncomeCOP) * 100 : 0;
 
     $('mlSumProduct').innerHTML = fmtCOP(productCOP) + ' <small id="mlSumProductAlt">' + fmtUSD(productUSD) + '</small>';
-    $('mlSumTax').innerHTML = fmtCOP(taxCOP) + ' <small id="mlSumTaxAlt">' + fmtUSD(taxUSD) + '</small>';
-    $('mlTaxLineLabel').textContent = 'Impuesto (' + config.taxPercent + '%)';
     $('mlTaxRuleThreshold').textContent = '$' + config.taxThresholdUSD + ' USD';
     $('mlTaxRulePercent').textContent = config.taxPercent + '%';
     const mlTaxLine = $('mlTaxLine');
     mlTaxLine.classList.toggle('excluded', taxCOP <= 0);
+    if (!mlTaxEnabled){
+      $('mlTaxLineLabel').textContent = 'Impuesto (desactivado)';
+      $('mlSumTax').innerHTML = fmtCOP(0) + ' <small id="mlSumTaxAlt">$0.00</small>';
+    } else {
+      $('mlTaxLineLabel').textContent = 'Impuesto (' + config.taxPercent + '%)';
+      $('mlSumTax').innerHTML = fmtCOP(taxCOP) + ' <small id="mlSumTaxAlt">' + fmtUSD(taxUSD) + '</small>';
+    }
     $('mlSumIntl').innerHTML = fmtCOP(intlCOP) + ' <small id="mlSumIntlAlt">' + fmtUSD(intlUSD) + '</small>';
 
     const nationalLine = $('mlNationalLine');
@@ -2254,6 +2273,8 @@
     mlClientPaysNationalSwitch.classList.remove('on');
     mlClientShippingFieldRow.style.display = 'none';
     mlClientShippingNote.style.display = 'none';
+    mlTaxEnabled = true;
+    mlTaxSwitch.classList.add('on');
     setMlProductCurrency('USD');
     setMlIntlCurrency('COP');
   });
